@@ -4,8 +4,8 @@ import 'package:appfood/common_widget/round_icon_button.dart';
 import 'package:appfood/common_widget/round_textfield.dart';
 import 'package:appfood/view/login/rest_password_view.dart';
 import 'package:appfood/view/login/sing_up_view.dart';
+import 'package:appfood/view/main_tabview/main_tabview.dart';
 import 'package:flutter/material.dart';
-import '../on_boarding/on_boarding_view.dart';
 
 class LoginView extends StatefulWidget {
   const LoginView({super.key});
@@ -62,11 +62,10 @@ class _LoginViewState extends State<LoginView> {
               RoundButton(
                 title: "Login",
                 onPressed: () {
-                  Navigator.push(
+                  Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const OnBoardingView(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const MainTabView()),
+                    (route) => false, 
                   );
                 },
               ),
