@@ -5,6 +5,7 @@ import 'package:appfood/common_widget/round_textfield.dart';
 import 'package:appfood/view/login/rest_password_view.dart';
 import 'package:appfood/view/login/sing_up_view.dart';
 import 'package:appfood/view/main_tabview/main_tabview.dart';
+import 'package:appfood/view/on_boarding/on_boarding_view.dart';
 import 'package:flutter/material.dart';
 
 class LoginView extends StatefulWidget {
@@ -64,8 +65,8 @@ class _LoginViewState extends State<LoginView> {
                 onPressed: () {
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (_) => const MainTabView()),
-                    (route) => false, 
+                    MaterialPageRoute(builder: (_) => const OnBoardingView()),
+                    (route) => false,
                   );
                 },
               ),
