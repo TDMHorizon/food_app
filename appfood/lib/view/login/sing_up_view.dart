@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:appfood/common/color_extension.dart';
 import 'package:appfood/common_widget/round_button.dart';
 
@@ -20,6 +24,55 @@ class _SignUpViewState extends State<SignUpView> {
   TextEditingController txtEmail = TextEditingController();
   TextEditingController txtPassword = TextEditingController();
   TextEditingController txtConfirmPassword = TextEditingController();
+
+  Future<void> _signUp() async {
+    if (txtPassword.text != txtConfirmPassword.text) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Mật khẩu không khớp!")));
+      return;
+    }
+    
+    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+    
+    // Đối với Emulator Android, localhost là 10.0.2.2. IOS/Web là localhost
+    final url = Uri.parse('http://localhost:3000/api/auth/register');
+    
+    try {
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'fullname': txtName.text,
+          'email': txtEmail.text,
+          'phone': txtMobile.text,
+          'address': txtAddress.text,
+          'password': txtPassword.text,
+        }),
+      );
+      
+      if (!mounted) return;
+      Navigator.pop(context); // close dialog
+      
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('token', data['token']);
+        
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Đăng ký thành công!")));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const OtpView()),
+        );
+      } else {
+        final data = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(data['message'] ?? "Lỗi đăng ký")));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // close dialog
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Lỗi kết nối server: $e")));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,12 +132,7 @@ class _SignUpViewState extends State<SignUpView> {
               const SizedBox(height: 30),
               RoundButton(
                 title: "Sign Up",
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const OtpView()),
-                  );
-                },
+                onPressed: _signUp,
               ),
 
               SizedBox(height: 30),
