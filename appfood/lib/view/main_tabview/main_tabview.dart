@@ -1,9 +1,14 @@
+// ========== PHẦN PUSH: THANH ĐIỀU HƯỚNG DƯỚI + TAB HỒ SƠ / KHÁC ==========
+// IndexedStack: giữ state từng tab. Mỗi tab có Navigator riêng (push màn con trong tab).
+// Tab index 3 = Hồ sơ (ProfileView), 4 = Khác (MoreView).
+
 import 'package:flutter/material.dart';
 import 'package:appfood/common/color_extension.dart';
 import 'package:appfood/view/home/home_view.dart';
 import 'package:appfood/view/menu/menu_view.dart'; // Màn hình Menu mới
 import 'package:appfood/view/order/order_view.dart'; // 'Offers'
 import 'package:appfood/view/profile/profile_view.dart'; // 'Profile'
+import 'package:appfood/view/more/more_view.dart';
 
 class MainTabView extends StatefulWidget {
   const MainTabView({super.key});
@@ -15,6 +20,7 @@ class MainTabView extends StatefulWidget {
 class _MainTabViewState extends State<MainTabView> {
   int _currentIndex = 2; // Default to Home (Center)
 
+  // Mỗi tab một key để pop về root khi bấm lại cùng tab đang chọn
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -23,6 +29,7 @@ class _MainTabViewState extends State<MainTabView> {
     GlobalKey<NavigatorState>(),
   ];
 
+  // Navigator lồng: root của tab = rootWidget (Menu / Order / Home / Profile / More)
   Widget _buildNavigator(int index, Widget rootWidget) {
     return Navigator(
       key: _navigatorKeys[index],
@@ -41,8 +48,8 @@ class _MainTabViewState extends State<MainTabView> {
           _buildNavigator(0, const MenuView()),
           _buildNavigator(1, const OrderView()),
           _buildNavigator(2, const HomeView()),
-          _buildNavigator(3, const ProfileView()),
-          _buildNavigator(4, Container(color: Colors.white)), // Placeholder
+          _buildNavigator(3, const ProfileView()), // tab Hồ sơ — phần push báo cáo
+          _buildNavigator(4, const MoreView()), // tab Khác — phần push báo cáo
         ],
       ),
       backgroundColor: const Color(0xfff5f5f5),
@@ -66,6 +73,7 @@ class _MainTabViewState extends State<MainTabView> {
     );
   }
 
+  // Đổi tab hoặc pop stack tab về màn đầu nếu bấm lại tab đang mở
   Widget _buildTabItem(int index, IconData icon, String label) {
     bool isSelected = _currentIndex == index;
     return GestureDetector(

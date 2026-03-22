@@ -13,7 +13,7 @@ module.exports = function (req, res, next) {
 
   // Verify token
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'super_secret_jwt_key_for_appfood_2024');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key_appfood_2024');
     req.user = decoded.user;
     next();
   } catch (err) {

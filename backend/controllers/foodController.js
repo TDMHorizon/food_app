@@ -1,5 +1,30 @@
 const db = require('../config/db');
 
+exports.checkout = async (req, res) => {
+  const { total_price, items, delivery_address } = req.body;
+  if (total_price == null || !Array.isArray(items)) {
+    return res.status(400).json({ message: 'total_price and items required' });
+  }
+  try {
+    const r = await db.query(
+      `INSERT INTO orders (user_id, total_price, items, status, delivery_address)
+       VALUES ($1, $2, $3::jsonb, $4, $5)
+       RETURNING id, total_price, status, created_at`,
+      [
+        req.user.id,
+        Number(total_price),
+        JSON.stringify(items),
+        'processing',
+        delivery_address || null,
+      ]
+    );
+    res.status(201).json(r.rows[0]);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 exports.getRestaurants = async (req, res) => {
   try {
     const result = await db.query('SELECT * FROM restaurants');

@@ -1,8 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:appfood/common/auth_token.dart';
 import 'package:appfood/common/color_extension.dart';
 import 'package:appfood/common/cart_controller.dart';
+import 'package:appfood/view/checkout/checkout_view.dart';
 import 'package:appfood/common/smart_image.dart';
 
 class CartView extends StatefulWidget {
@@ -13,8 +13,6 @@ class CartView extends StatefulWidget {
 }
 
 class _CartViewState extends State<CartView> {
-  bool isCheckout = false;
-
   @override
   void initState() {
     super.initState();
@@ -39,68 +37,21 @@ class _CartViewState extends State<CartView> {
       return;
     }
 
-    setState(() {
-      isCheckout = true;
-    });
-
-    try {
-      final url = Uri.parse('http://localhost:3000/api/food/checkout');
-      final body = jsonEncode({
-        "total_price": CartController().totalPrice,
-        "items": CartController().items.map((e) => {
-          "menuItemId": e.menuItemId,
-          "name": e.name,
-          "quantity": e.quantity,
-          "price": e.price
-        }).toList(),
-      });
-
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: body,
-      );
-
-      if (response.statusCode == 201) {
-        CartController().clearCart();
-        if (mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text("Thành công"),
-              content: const Text("Đơn hàng của bạn đã được đặt thành công!"),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context); // Close dialog
-                    Navigator.pop(context); // Go back to previous screen
-                  },
-                  child: const Text("Đóng"),
-                )
-              ],
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Thanh toán thất bại, vui lòng thử lại!")),
-          );
-        }
-      }
-    } catch (e) {
+    final token = await AuthToken.get();
+    if (token == null || token.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Lỗi kết nối: \$e")),
+          const SnackBar(content: Text("Vui lòng đăng nhập để thanh toán.")),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          isCheckout = false;
-        });
-      }
+      return;
     }
+
+    if (!mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CheckoutView()),
+    );
   }
 
   @override
@@ -257,20 +208,18 @@ class _CartViewState extends State<CartView> {
                       ),
                       const SizedBox(height: 20),
                       InkWell(
-                        onTap: isCheckout ? null : _handleCheckout,
+                        onTap: _handleCheckout,
                         child: Container(
                           height: 50,
                           decoration: BoxDecoration(
-                            color: isCheckout ? Colors.grey : TColor.primary,
+                            color: TColor.primary,
                             borderRadius: BorderRadius.circular(25),
                           ),
                           alignment: Alignment.center,
-                          child: isCheckout 
-                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text(
-                                "Thanh toán",
-                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
+                          child: const Text(
+                            "Thanh toán",
+                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       )
                     ],

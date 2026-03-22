@@ -90,6 +90,7 @@ const login = async (req, res) => {
   }
 };
 
+// PHẦN PUSH (Flutter ProfileView): trả về fullname, email, phone, address
 // @route   GET /api/auth/profile
 // @desc    Get user profile
 const getProfile = async (req, res) => {
@@ -139,8 +140,8 @@ const socialLogin = async (req, res) => {
 
     jwt.sign(
       payload,
-      process.env.JWT_SECRET || 'super_secret_jwt_key_for_appfood_2024',
-      { expiresIn: '5h' },
+      process.env.JWT_SECRET || 'secret_key_appfood_2024',
+      { expiresIn: '30d' },
       (err, token) => {
         if (err) throw err;
         res.json({ token, user });
@@ -152,9 +153,46 @@ const socialLogin = async (req, res) => {
   }
 };
 
+// PHẦN PUSH (Flutter ProfileView — nút Save): cập nhật thông tin + đổi mật khẩu tuỳ chọn
+// @route   PUT /api/auth/profile
+// @desc    Update profile (optional password change)
+const updateProfile = async (req, res) => {
+  const { fullname, phone, address, password, confirmPassword } = req.body;
+  try {
+    if (password !== undefined && password !== '') {
+      if (password !== confirmPassword) {
+        return res.status(400).json({ message: 'Passwords do not match' });
+      }
+      if (password.length < 6) {
+        return res.status(400).json({ message: 'Password too short' });
+      }
+      const salt = await bcrypt.genSalt(10);
+      const hashed = await bcrypt.hash(password, salt);
+      await db.query(
+        `UPDATE users SET fullname = COALESCE($1, fullname), phone = COALESCE($2, phone), address = COALESCE($3, address), password = $4 WHERE id = $5`,
+        [fullname ?? null, phone ?? null, address ?? null, hashed, req.user.id]
+      );
+    } else {
+      await db.query(
+        `UPDATE users SET fullname = COALESCE($1, fullname), phone = COALESCE($2, phone), address = COALESCE($3, address) WHERE id = $4`,
+        [fullname ?? null, phone ?? null, address ?? null, req.user.id]
+      );
+    }
+    const userResult = await db.query(
+      'SELECT id, fullname, email, phone, address, created_at FROM users WHERE id = $1',
+      [req.user.id]
+    );
+    res.json(userResult.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
+  updateProfile,
   socialLogin,
 };
