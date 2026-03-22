@@ -1,20 +1,34 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 class CategoryModel {
   final String name;
-  final String icon; // emoji icon
+  final String imageUrl;
+  final String itemsCount;
 
-  CategoryModel({required this.name, required this.icon});
+  CategoryModel({
+    required this.name, 
+    required this.imageUrl, 
+    this.itemsCount = ""
+  });
 
-  // Mock data — sau này thay bằng Firestore
-  static List<CategoryModel> mockList() {
-    return [
-      CategoryModel(name: "Cơm", icon: "🍚"),
-      CategoryModel(name: "Phở", icon: "🍜"),
-      CategoryModel(name: "Bánh mì", icon: "🥖"),
-      CategoryModel(name: "Pizza", icon: "🍕"),
-      CategoryModel(name: "Burger", icon: "🍔"),
-      CategoryModel(name: "Tráng miệng", icon: "🍰"),
-      CategoryModel(name: "Trà sữa", icon: "🧋"),
-      CategoryModel(name: "Khác", icon: "🍱"),
-    ];
+  factory CategoryModel.fromJson(Map<String, dynamic> json) {
+    return CategoryModel(
+      name: json['name'] ?? '',
+      imageUrl: json['image'] ?? '',
+      itemsCount: json['items_count']?.toString() ?? '',
+    );
+  }
+
+  static Future<List<CategoryModel>> fetchAll() async {
+    try {
+      final url = Uri.parse('http://localhost:3000/api/food/categories');
+      final res = await http.get(url);
+      if (res.statusCode == 200) {
+        final List data = jsonDecode(res.body);
+        return data.map((e) => CategoryModel.fromJson(e)).toList();
+      }
+    } catch (_) {}
+    return [];
   }
 }

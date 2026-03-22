@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:appfood/common/color_extension.dart';
+import 'package:appfood/common/smart_image.dart';
 import 'package:appfood/model/category_model.dart';
 
 class CategoryCell extends StatelessWidget {
   final CategoryModel category;
-  final bool isSelected;
   final VoidCallback onTap;
 
   const CategoryCell({
     super.key,
     required this.category,
-    required this.isSelected,
     required this.onTap,
   });
 
@@ -18,29 +17,49 @@ class CategoryCell extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? TColor.primary : TColor.textfield,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? TColor.primaryDark : Colors.transparent,
-            width: 1.5,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+      child: Container(
+        margin: const EdgeInsets.only(right: 15),
+        child: Column(
           children: [
-            Text(category.icon, style: const TextStyle(fontSize: 18)),
-            const SizedBox(width: 6),
+            category.name == "Khuyến mãi"
+                ? Container(
+                    width: 85,
+                    height: 85,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        colors: [Colors.orange.shade400, Colors.deepOrange.shade600],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 5, offset: const Offset(0, 3)),
+                      ],
+                    ),
+                    child: const Icon(Icons.local_offer_rounded, color: Colors.white, size: 36),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SmartImage(
+                      category.imageUrl,
+                      width: 85,
+                      height: 85,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => Container(
+                        width: 85,
+                        height: 85,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.fastfood, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+            const SizedBox(height: 8),
             Text(
               category.name,
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : TColor.primaryText,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: TColor.primaryText,
               ),
             ),
           ],

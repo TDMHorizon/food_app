@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 class TColor {
   // Main colors
-  static Color get primary => const Color(0xffFDD100);
-  static Color get primaryDark => const Color(0xffF5C400);
-  static Color get orangeDark =>
-      const Color(0xFFF57C00); // Cam đậm (button press)
+  static Color get primary => const Color(0xffFC6011); // Cam Monkey App
+  static Color get primaryDark => const Color(0xffD94E0A);
+  static Color get orangeDark => const Color(0xffE25008);
 
   // Text colors
   static Color get primaryText => const Color(0xFF1F1F1F); // Text chính

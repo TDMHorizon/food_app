@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:appfood/common/color_extension.dart';
 
 class MapPickerView extends StatefulWidget {
@@ -16,8 +17,10 @@ class MapPickerView extends StatefulWidget {
 
 class _MapPickerViewState extends State<MapPickerView> {
   final MapController _mapController = MapController();
+  final TextEditingController _txtSearch = TextEditingController();
+  Timer? _debounce;
+  List<dynamic> _searchResults = [];
 
-  // Mặc định: trung tâm TP.HCM
   static const LatLng _defaultPosition = LatLng(10.7769, 106.7009);
 
   late LatLng _selectedPosition;
@@ -30,11 +33,16 @@ class _MapPickerViewState extends State<MapPickerView> {
     super.initState();
     _selectedPosition = widget.initialPosition ?? _defaultPosition;
     _getAddressFromLatLng(_selectedPosition);
-
-     Future.delayed(Duration.zero, _getCurrentLocation);
+    Future.delayed(Duration.zero, _getCurrentLocation);
   }
 
-  // Lấy vị trí GPS
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _txtSearch.dispose();
+    super.dispose();
+  }
+
   Future<void> _getCurrentLocation() async {
     setState(() => _isLoadingLocation = true);
     try {
@@ -64,7 +72,6 @@ class _MapPickerViewState extends State<MapPickerView> {
     }
   }
 
-  // Đổi tọa độ → địa chỉ text (dùng Nominatim OSM - miễn phí)
   Future<void> _getAddressFromLatLng(LatLng pos) async {
     setState(() => _isLoadingAddress = true);
     try {
@@ -80,10 +87,10 @@ class _MapPickerViewState extends State<MapPickerView> {
         final data = json.decode(response.body);
         final addr = data["address"] as Map<String, dynamic>;
         final parts = <String>[];
-        if (addr["road"] != null)         parts.add(addr["road"]);
-        if (addr["suburb"] != null)       parts.add(addr["suburb"]);
+        if (addr["road"] != null) parts.add(addr["road"]);
+        if (addr["suburb"] != null) parts.add(addr["suburb"]);
         if (addr["city_district"] != null) parts.add(addr["city_district"]);
-        if (addr["city"] != null)         parts.add(addr["city"]);
+        if (addr["city"] != null) parts.add(addr["city"]);
         setState(() {
           _selectedAddress = parts.isNotEmpty
               ? parts.join(", ")
@@ -97,6 +104,46 @@ class _MapPickerViewState extends State<MapPickerView> {
     }
   }
 
+  void _onSearchChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    if (query.isEmpty) {
+      setState(() => _searchResults = []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      final url = Uri.parse(
+        "https://nominatim.openstreetmap.org/search"
+        "?q=$query&format=json&limit=5&accept-language=vi&countrycodes=vn"
+      );
+      try {
+        final response = await http.get(url, headers: {
+          "User-Agent": "MealMonkeyApp/1.0",
+        });
+        if (response.statusCode == 200) {
+          if (mounted) {
+            setState(() {
+              _searchResults = json.decode(response.body);
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint("Lỗi tìm kiếm: $e");
+      }
+    });
+  }
+
+  void _onSelectResult(dynamic item) {
+    FocusScope.of(context).unfocus();
+    _txtSearch.clear();
+    setState(() => _searchResults = []);
+    final double lat = double.parse(item["lat"]);
+    final double lon = double.parse(item["lon"]);
+    final newPos = LatLng(lat, lon);
+    _mapController.move(newPos, 16);
+    setState(() => _selectedPosition = newPos);
+    _getAddressFromLatLng(newPos);
+  }
+
   void _confirmAddress() {
     if (_isLoadingAddress) return;
     Navigator.pop(context, {
@@ -107,15 +154,13 @@ class _MapPickerViewState extends State<MapPickerView> {
   }
 
   void _showSnack(String msg) =>
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
         children: [
-
           // ── BẢN ĐỒ ──
           FlutterMap(
             mapController: _mapController,
@@ -135,8 +180,7 @@ class _MapPickerViewState extends State<MapPickerView> {
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 userAgentPackageName: "com.example.appfood",
               ),
             ],
@@ -147,63 +191,17 @@ class _MapPickerViewState extends State<MapPickerView> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.location_pin,
-                    color: Color(0xFF6F0706), size: 48),
+                Icon(Icons.location_pin, color: Color(0xFF6F0706), size: 48),
                 SizedBox(
                   width: 14, height: 6,
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: Colors.black26,
-                      borderRadius:
-                          BorderRadius.all(Radius.circular(3)),
+                      borderRadius: BorderRadius.all(Radius.circular(3)),
                     ),
                   ),
                 ),
               ],
-            ),
-          ),
-
-          // ── APP BAR ──
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 8),
-                child: Row(
-                  children: [
-                    _mapBtn(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () => Navigator.pop(context),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        height: 44,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          boxShadow: const [
-                            BoxShadow(
-                                color: Colors.black12, blurRadius: 8)
-                          ],
-                        ),
-                        child: Row(children: [
-                          Icon(Icons.info_outline_rounded,
-                              color: TColor.placeholder, size: 18),
-                          const SizedBox(width: 8),
-                          Text("Kéo bản đồ để chọn vị trí",
-                              style: TextStyle(
-                                  color: TColor.placeholder,
-                                  fontSize: 13)),
-                        ]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
 
@@ -218,8 +216,7 @@ class _MapPickerViewState extends State<MapPickerView> {
                     child: const Center(
                       child: SizedBox(
                           width: 20, height: 20,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2)),
+                          child: CircularProgressIndicator(strokeWidth: 2)),
                     ),
                   )
                 : _mapBtn(
@@ -235,8 +232,7 @@ class _MapPickerViewState extends State<MapPickerView> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 36),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -248,7 +244,6 @@ class _MapPickerViewState extends State<MapPickerView> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Handle
                   Center(
                     child: Container(
                       width: 40, height: 4,
@@ -258,20 +253,16 @@ class _MapPickerViewState extends State<MapPickerView> {
                     ),
                   ),
                   const SizedBox(height: 16),
-
                   Text("Địa chỉ giao hàng",
                       style: TextStyle(
                           fontSize: 13,
                           color: TColor.secondaryText,
                           fontWeight: FontWeight.w500)),
                   const SizedBox(height: 10),
-
-                  // Địa chỉ
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.location_on_rounded,
-                          color: TColor.red, size: 22),
+                      Icon(Icons.location_on_rounded, color: TColor.red, size: 22),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _isLoadingAddress
@@ -279,8 +270,7 @@ class _MapPickerViewState extends State<MapPickerView> {
                                 SizedBox(
                                   width: 16, height: 16,
                                   child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: TColor.primary),
+                                      strokeWidth: 2, color: TColor.primary),
                                 ),
                                 const SizedBox(width: 8),
                                 Text("Đang xác định...",
@@ -297,8 +287,6 @@ class _MapPickerViewState extends State<MapPickerView> {
                     ],
                   ),
                   const SizedBox(height: 20),
-
-                  // Nút xác nhận
                   GestureDetector(
                     onTap: _confirmAddress,
                     child: Container(
@@ -312,8 +300,7 @@ class _MapPickerViewState extends State<MapPickerView> {
                             ? []
                             : [
                                 BoxShadow(
-                                    color:
-                                        TColor.primary.withOpacity(0.4),
+                                    color: TColor.primary.withOpacity(0.4),
                                     blurRadius: 12,
                                     offset: const Offset(0, 4))
                               ],
@@ -335,27 +322,122 @@ class _MapPickerViewState extends State<MapPickerView> {
               ),
             ),
           ),
+
+          // ── APP BAR / SEARCH BAR TẠI TOP ──
+          Positioned(
+            top: 0, left: 0, right: 0,
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        _mapBtn(
+                          icon: Icons.arrow_back_rounded,
+                          onTap: () => Navigator.pop(context),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 14),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black12, blurRadius: 8)
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.search, color: TColor.placeholder),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _txtSearch,
+                                    onChanged: _onSearchChanged,
+                                    decoration: InputDecoration(
+                                      hintText: "Tìm kiếm địa điểm...",
+                                      hintStyle: TextStyle(
+                                        color: TColor.placeholder,
+                                        fontSize: 14,
+                                      ),
+                                      border: InputBorder.none,
+                                    ),
+                                  ),
+                                ),
+                                if (_txtSearch.text.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () {
+                                      _txtSearch.clear();
+                                      setState(() => _searchResults = []);
+                                      FocusScope.of(context).unfocus();
+                                    },
+                                    child: Icon(Icons.close, color: TColor.primary),
+                                  )
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Hiển thị danh sách kết quả tìm kiếm
+                    if (_searchResults.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8, left: 56), // align with search bar
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 8)
+                          ],
+                        ),
+                        constraints: const BoxConstraints(maxHeight: 250),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          padding: EdgeInsets.zero,
+                          itemCount: _searchResults.length,
+                          separatorBuilder: (context, index) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final item = _searchResults[index];
+                            return ListTile(
+                              leading: const Icon(Icons.location_on, color: Colors.grey),
+                              title: Text(
+                                item["display_name"] ?? "",
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13),
+                              ),
+                              onTap: () => _onSelectResult(item),
+                            );
+                          },
+                        ),
+                      )
+                  ],
+                ),
+              ),
+            ),
+          ),
+
         ],
       ),
     );
   }
 
-  Widget _mapBtn(
-      {required IconData icon, required VoidCallback onTap}) {
+  Widget _mapBtn({required IconData icon, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44, height: 44,
+        width: 48, height: 48,
         decoration: BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
           boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(0.12), blurRadius: 8)
+            BoxShadow(color: Colors.black.withOpacity(0.12), blurRadius: 8)
           ],
         ),
-        child: Center(
-            child: Icon(icon, color: Colors.black87, size: 22)),
+        child: Center(child: Icon(icon, color: Colors.black87, size: 22)),
       ),
     );
   }

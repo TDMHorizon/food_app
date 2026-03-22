@@ -2,6 +2,8 @@ import 'package:appfood/common/color_extension.dart';
 import 'package:flutter/material.dart';
 
 import '../login/welcome_view.dart';
+import '../main_tabview/main_tabview.dart';
+import 'on_boarding_view.dart';
 
 class StartupView extends StatefulWidget {
   const StartupView({super.key});
